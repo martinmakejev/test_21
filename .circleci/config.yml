@@ -1,0 +1,50 @@
+version: 2.1
+
+executors:
+  node-ci-executor:
+    docker:
+      - image: circleci/node:gallium-browsers
+
+commands:
+  setup-js-job:
+    steps:
+      - checkout
+      - run:
+          name: Run NPM install
+          command: npm ci
+
+workflows:
+  version: 2.1
+  test-workflow:
+    jobs:
+      - lint
+      - visual_test
+
+jobs:
+
+  lint:
+    executor: node-ci-executor
+    steps:
+      - setup-js-job
+      - run:
+          name: "Run linter (eslint)"
+          command: npm run lint
+
+  visual_test:
+    executor: node-ci-executor
+    steps:
+      - setup-js-job
+      - run:
+          name: Install correct version of ChromeDriver
+          command: |
+            npm uninstall chromedriver
+            chrome_version_full=$(google-chrome --version)
+            chrome_major_version=$(echo $chrome_version_full | cut -d " " -f 3 | cut -d "." -f 1)
+            echo "download chrome ${chrome_major_version} [${chrome_version_full}]"
+            npm i "chromedriver@^${chrome_major_version}.0.0" --save-dev
+      - run:
+          name: "Run visual testing (Nightwatch)"
+          command: npm run test
+      - store_artifacts:
+          path: ./nightwatch
+          destination: artifact-file
